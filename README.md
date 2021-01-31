@@ -1,1 +1,1 @@
-# Hacktheboxwriteup
+### Archetype
