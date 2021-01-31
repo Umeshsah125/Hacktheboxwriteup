@@ -1,0 +1,64 @@
+Oopsie is linux based OS of hackthebox starting point.Let's start hacking it
+
+i. Enumeration:
+===============
+
+# nmap -sC -sV -p- --min-rate=1000 vvv -oN <ip>
+-> It will give us two ports open.
+22 - SSH
+80 - Apache web server
+
+Let's visit the web-page for any interesting factor
+-> View the page source and we got an interesting page for login with an username admin, alternatively we can use burpsuite passive scan for content-discovery
+-> http://<ip>/cdn-cgi/login
+-> Login into webpage using email admin and the password we got on previous machine MEGACORP_4dm1n!!
+-> Notice the uploads section which is inaccessible by normal user.
+-> So, we need to escalate our privilege to access that page.
+
+
+ii. Gaining Access
+===================
+-> We will use burpsuite intruder to enumerate the user id
+-> Once the intruder stops, we will look for super admin id which is on id=30
+-> Now that we know user role,its id and access id, let's change the cookies value with the give credentials
+-> We are now superadmin
+-> Upload the reverse shell of php and start a netcat listener on your local ip
+-> After uploading the file, we have to access our file which we don't know where it is stored.Thus we will use ffuf
+  # ffuf -u http://<ip>/FUZZ -w <wordlist> -c -v
+  
+  -> we got an interesting folder named uploads 
+  -> let's visit that page but wait what we are forbidden to access that page, Now problem we will see whether our shell.php is present on it or not
+  -> when we visit http://<ip>/uploads/shell.php, We got shell
+  
+  iii. Privilege Escalation
+  ==========================
+  
+ -> Let's first make our shell stable
+  python -c "import pty;pty.spawn('/bin/bash');"
+  - It will make our shell stable
+  
+  Now that we are on right track.Let's see if we can find any interesting stuff in cdn-cgi page which is in /var/www/html/cdn-cgi/login/
+  -> we have db.php file which contains username robert and password  M3g4C0rpUs3r! and database named garage.
+  -> Switch to user robert using above credentials
+  -> visit /home/robert directory for the user flag
+  
+  After getting user flag let's go for root flag,running the id command shows us that user robert is member of group bugtracker.Let's see what we can enumerate
+  # find / -type f -group bugtracker 2>/dev/null
+  -> Well we got a file path /usr/bin/bugtracker with suid set
+  -> let's have a look into the strings of bugtracker
+  #strings /usr/bin/bugtracker
+  - We can see cat binary being used there. So, we can abuse that functionality to gain access to the root.
+  follow the following steps:
+    export PATH=/tmp:$PATH
+    cd /tmp
+    echo '/bin/sh' > cat
+    chmod +x cat
+    
+    Now,when we run the binary we get root access
+   #/usr/bin/bugtracker
+  #id
+  Goto /root folder and copy the flag
+  
+ Note: There is a .config directory which contains a filezilla folder which might be useful for us to let's copy the credentials of this one to our notes
+ username: ftpuser
+ password: mc@F1l3ZilL4
