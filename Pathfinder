@@ -1,0 +1,26 @@
+Pathfinder is also an windows based operating system for our starting point lab of hackthebox.It's time to enumerate to find out interesting stuff on this machine.
+
+i. Enumeration:
+===============
+#nmap -sC -sV -vvv -T4 --min-rate=1000 -oN pathfinderscan <ip>
+-> Scanning the machine gives us 19 ports open where we can find that some of them are interesting for our purpose.
+Port No. 88 for kerberos authentication
+Port No. 389 for LDAP, which is a domain controller
+Port No. 5985 for WinRM
+
+Install bloodhound from here: https://github.com/fox-it/BloodHound.py.git
+
+# python3 bloodhound-python -d megacorp.local -u sandra -p "Password1234!" -gc pathfinder.megacorp.local -c all -ns <ip>
+-> -d stand for domain name
+   -u username
+   -p password
+   -gc global-catalog HOST
+   -ns is nameserver
+   
+**** The json files should be now in the working directory,ready to be imported into bloodhound
+-> Install neo4j and bloodhound
+# apt install neo4j
+# apt install bloodhound
+
+-> Configure the neo4j console
+# neo4j start console
